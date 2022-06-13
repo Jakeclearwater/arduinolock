@@ -2,17 +2,18 @@
 #include <SPI.h> 
 #include <RFID.h>
 #include <Servo.h> 
-
-RFID rfid(10, 9);       //D10:pin of tag reader SDA. D9:pin of tag reader RST 
+#include <LiquidCrystal.h>
+LiquidCrystal lcd(8, 7, 6, 5, 4, 2);
+RFID rfid(10, 9);       
 unsigned char status; 
 unsigned char str[MAX_LEN]; //MAX_LEN is 16: size of the array 
 
-String accessGranted [2] = {"1138713418", "19612012715"};  //RFID serial numbers to grant access to
-int accessGrantedSize = 2;                                //The number of serial numbers
+String accessGranted [2] = {"1138713418", "19612012715"};  
+int accessGrantedSize = 2;                                
 
-Servo lockServo;                //Servo for locking mechanism
-int lockPos = 25;               //Locked position limit
-int unlockPos = 75;             //Unlocked position limit
+Servo lockServo;                
+int lockPos = 75;               //Locked position limit
+int unlockPos = 180;             //Unlocked position limit
 boolean locked = true;
 
 int redLEDPin = 5;
@@ -20,10 +21,12 @@ int greenLEDPin = 6;
 
 void setup() 
 { 
-  Serial.begin(9600);     //Serial monitor is only required to get tag ID numbers and for troubleshooting
-  SPI.begin();            //Start SPI communication with reader
-  rfid.init();            //initialization 
-  pinMode(redLEDPin, OUTPUT);     //LED startup sequence
+  Serial.begin(9600);  
+  lcd.begin(16, 2);                 //tell the lcd library that we are using a display that is 16 characters wide and 2 characters high
+  lcd.clear(); //clear the display   
+  SPI.begin();            
+  rfid.init();            
+  pinMode(redLEDPin, OUTPUT);     
   pinMode(greenLEDPin, OUTPUT);
   digitalWrite(redLEDPin, HIGH);
   delay(200);
@@ -35,26 +38,30 @@ void setup()
   lockServo.attach(3);
   lockServo.write(lockPos);         //Move servo into locked position
   Serial.println("Place card/tag near reader...");
+  lcd.setCursor(0, 0);
+  lcd.print("Place Card");
+  lcd.setCursor(0, 1);
+  lcd.print("On Reader");
 } 
 
 void loop() 
 { 
-  if (rfid.findCard(PICC_REQIDL, str) == MI_OK)   //Wait for a tag to be placed near the reader
+  if (rfid.findCard(PICC_REQIDL, str) == MI_OK)   //Wait for a tag
   { 
     Serial.println("Card found"); 
-    String temp = "";                             //Temporary variable to store the read RFID number
-    if (rfid.anticoll(str) == MI_OK)              //Anti-collision detection, read tag serial number 
+    String temp = "";                             
+    if (rfid.anticoll(str) == MI_OK)               
     { 
       Serial.print("The card's ID number is : "); 
-      for (int i = 0; i < 4; i++)                 //Record and display the tag serial number 
+      for (int i = 0; i < 4; i++)                 
       { 
         temp = temp + (0x0F & (str[i] >> 4)); 
         temp = temp + (0x0F & str[i]); 
       } 
       Serial.println (temp);
-      checkAccess (temp);     //Check if the identified tag is an allowed to open tag
+      checkAccess (temp);    
     } 
-    rfid.selectTag(str); //Lock card to prevent a redundant read, removing the line will make the sketch read cards continually
+    rfid.selectTag(str); 
   }
   rfid.halt();
 }
@@ -67,6 +74,10 @@ void checkAccess (String temp)    //Function to check if an identified tag is re
     if(accessGranted[i] == temp)            //If a tag is found then open/close the lock
     {
       Serial.println ("Access Granted");
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Access Granted");
+      delay(200);
       granted = true;
       if (locked == true)         //If the lock is closed then open it
       {
@@ -91,6 +102,9 @@ void checkAccess (String temp)    //Function to check if an identified tag is re
   if (granted == false)     //If the tag is not found
   {
     Serial.println ("Access Denied");
+    lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Access Denied");
     digitalWrite(redLEDPin, HIGH);      //Red LED sequence
     delay(200);
     digitalWrite(redLEDPin, LOW);
